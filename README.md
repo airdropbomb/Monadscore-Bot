@@ -46,12 +46,6 @@ Create or modify the wallets.json file and enter your wallet addresses in this f
 ]
 ```
 
-Step 4: (Optional) Add Proxy Support
-## Edit The Code 
-```
-nano code.txt
-```
-
 If you want to use proxies, add them to proxy.txt (one per line). Example:
 
 ```
@@ -65,12 +59,12 @@ http://proxy2.com:port
 
 Run the Bot for Auto Reff
 ```
-node index.js
+node start.js
 ```
 
 Automated Execution for Active Referals to start Node 
 ```
-node start.js
+npm start
 ```
 The bot is configured to run every day at 7 AM automatically.
 
