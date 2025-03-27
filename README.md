@@ -59,12 +59,12 @@ http://proxy2.com:port
 
 Run the Bot for Auto Reff
 ```
-node start.js
+npm start
 ```
 
 Automated Execution for Active Referals to start Node 
 ```
-npm start
+node start
 ```
 The bot is configured to run every day at 7 AM automatically.
 
