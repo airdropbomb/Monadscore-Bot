@@ -1,319 +1,155 @@
-const fs = require('fs');
-const ethers = require('ethers');
-const axios = require('axios');
-const readline = require('readline-sync');
-const { HttpProxyAgent } = require('http-proxy-agent');
-const { SocksProxyAgent } = require('socks-proxy-agent');
-const chalk = require('chalk');
+import fs from 'fs/promises';
+import axios from 'axios';
+import cfonts from 'cfonts';
+import chalk from 'chalk';
+import ora from 'ora';
+import readline from 'readline';
+import { Wallet } from 'ethers';
+import { HttpsProxyAgent } from 'https-proxy-agent';
+import { SocksProxyAgent } from 'socks-proxy-agent';
 
-// ======================
-// Animation Utilities
-// ======================
-const spinnerFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-let spinnerInterval;
+function print_banner() {
+  console.clear();
+  cfonts.say('MONADSCORE BOT', {
+    font: 'block',
+    align: 'center',
+    colors: ['cyanBright'],
+  });
 
-function startSpinner(text) {
-    let i = 0;
-    spinnerInterval = setInterval(() => {
-        process.stdout.write(`\r${chalk.cyan(spinnerFrames[i])} ${text}`);
-        i = (i + 1) % spinnerFrames.length;
-    }, 100);
+  console.log(chalk.cyanBright('════════════════════════════════════════════════════'));
+  console.log(chalk.cyanBright('  🚀 Automate your MonadScore tasks with ease! 🌟'));
+  console.log(chalk.cyanBright('  📌 Developed by: ') + chalk.magentaBright('https://t.me/Offical_Im_kazuha'));
+  console.log(chalk.cyanBright('  🔗 GitHub: ') + chalk.magentaBright('https://github.com/Kazuha787'));
+  console.log(chalk.cyanBright('════════════════════════════════════════════════════\n'));
 }
 
-function stopSpinner() {
-    clearInterval(spinnerInterval);
-    process.stdout.write('\r');
+function delay(seconds) {
+  return new Promise(resolve => setTimeout(resolve, seconds * 1000));
 }
 
-async function typeEffect(text, speed = 2) {
-    return new Promise(resolve => {
-        let i = 0;
-        const typing = setInterval(() => {
-            process.stdout.write(chalk.yellow(text[i]));
-            if (++i === text.length) {
-                clearInterval(typing);
-                console.log();
-                resolve();
-            }
-        }, speed);
-    });
+function centerText(text, color = 'greenBright') {
+  const terminalWidth = process.stdout.columns || 80;
+  const textLength = text.length;
+  const padding = Math.max(0, Math.floor((terminalWidth - textLength) / 2));
+  return ' '.repeat(padding) + chalk[color](text);
 }
 
-// ======================
-// Animated Banner
-// ======================
-async function printBanner() {
-    const bannerText = chalk.cyan(`
-╔════════════════════════════════════════════════════╗
-║                 MONAD SCORE BOT                    ║
-║       Automate your Monad Score registrations!     ║
-║    Developed by: https://t.me/Offical_Im_kazuha    ║
-║    GitHub: https://github.com/Kazuha787            ║
-╠════════════════════════════════════════════════════╣
-║                                                    ║
-║  ██╗  ██╗ █████╗ ███████╗██╗   ██╗██╗  ██╗ █████╗  ║
-║  ██║ ██╔╝██╔══██╗╚══███╔╝██║   ██║██║  ██║██╔══██╗ ║
-║  █████╔╝ ███████║  ███╔╝ ██║   ██║███████║███████║ ║
-║  ██╔═██╗ ██╔══██║ ███╔╝  ██║   ██║██╔══██║██╔══██║ ║
-║  ██║  ██╗██║  ██║███████╗╚██████╔╝██║  ██║██║  ██║ ║
-║  ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝ ║
-║                                                    ║
-╚════════════════════════════════════════════════════╝
-`);
+const userAgents = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.1 Safari/605.1.15',
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Firefox/102.0'
+];
 
-    console.clear();
-    for (const line of bannerText.split('\n')) {
-        await typeEffect(line);
-    }
+function getRandomUserAgent() {
+  return userAgents[Math.floor(Math.random() * userAgents.length)];
 }
 
-// ======================
-// Core Configuration
-// ======================
-const BASE_URL = 'https://mscore.onrender.com';
-const MAX_RETRIES = 3;
-let REFERRAL_CODE = '';
-let proxies = [];
-const stats = { total: 0, success: 0, failed: 0 };
+function getHeaders() {
+  return {
+    'User-Agent': getRandomUserAgent(),
+    'Accept': 'application/json, text/plain, */*',
+    'Content-Type': 'application/json',
+    'origin': 'https://monadscore.xyz',
+    'referer': 'https://monadscore.xyz/'
+  };
+}
 
-// ======================
-// Initialization Setup
-// ======================
-function initialize() {
-    // Load referral code
-    try {
-        if (fs.existsSync('code.txt')) {
-            REFERRAL_CODE = fs.readFileSync('code.txt', 'utf-8').trim();
-            console.log(chalk.green(`✅ Loaded referral code: ${chalk.yellow(REFERRAL_CODE)}`));
-        } else {
-            console.log(chalk.yellow('⚠️  code.txt not found - proceeding without referral code'));
-        }
-    } catch (error) {
-        console.log(chalk.red(`❌ Error reading code.txt: ${error.message}`));
-    }
+function getAxiosConfig(proxy) {
+  const config = {
+    headers: getHeaders(),
+    timeout: 60000
+  };
+  if (proxy) {
+    config.httpsAgent = newAgent(proxy);
+  }
+  return config;
+}
 
-    // Load proxies
-    if (fs.existsSync('proxies.txt')) {
-        proxies = fs.readFileSync('proxies.txt', 'utf-8')
-            .split('\n')
-            .map(line => line.trim())
-            .filter(line => line.length > 0)
-            .map(proxy => {
-                try {
-                    const proxyRegex = /^(http|socks4|socks5):\/\/(?:([^:]+):([^@]+)@)?([^:]+):(\d+)$/;
-                    const match = proxy.match(proxyRegex);
-                    if (!match) throw new Error('Invalid proxy format');
+function newAgent(proxy) {
+  if (proxy.startsWith('http://')) {
+    return new HttpsProxyAgent(proxy);
+  } else if (proxy.startsWith('socks4://') || proxy.startsWith('socks5://')) {
+    return new SocksProxyAgent(proxy);
+  } else {
+    console.log(chalk.red(`❌ Unsupported proxy type: ${proxy}`));
+    return null;
+  }
+}
 
-                    const [, type, username, password, host, port] = match;
-                    const encodedUsername = encodeURIComponent(username || '');
-                    const encodedPassword = encodeURIComponent(password || '');
-                    return `${type}://${encodedUsername}:${encodedPassword}@${host}:${port}`;
-                } catch (e) {
-                    console.log(chalk.red(`⏭️  Skipping invalid proxy: ${proxy} - ${e.message}`));
-                    return null;
-                }
-            })
-            .filter(proxy => proxy !== null);
+async function readAccounts() {
+  try {
+    const data = await fs.readFile('accounts.json', 'utf-8');
+    return JSON.parse(data);
+  } catch (error) {
+    console.error(chalk.red(`⚠️ Error reading accounts.json: ${error.message}`));
+    return [];
+  }
+}
 
-        console.log(chalk.green(`✅ Loaded ${chalk.yellow(proxies.length)} valid proxies`));
+async function claimTask(walletAddress, taskId, proxy) {
+  const url = 'https://mscore.onrender.com/user/claim-task';
+  const payload = { wallet: walletAddress, taskId };
+
+  try {
+    const response = await axios.post(url, payload, getAxiosConfig(proxy));
+    return response.data && response.data.message
+      ? response.data.message
+      : '✅ Task claimed successfully, but no server message.';
+  } catch (error) {
+    return `❌ Task ${taskId} failed: ${error.response?.data?.message || error.message}`;
+  }
+}
+
+async function processAccount(account, index, total, proxy) {
+  const { walletAddress, privateKey } = account;
+  console.log(`\n`);
+  console.log(chalk.cyanBright('╔' + '═'.repeat(78) + '╗'));
+  console.log(chalk.cyanBright(`║ ${chalk.bold.whiteBright(`Processing Account ${index + 1}/${total}`)} ${' '.repeat(42 - (index + 1).toString().length - total.toString().length)}║`));
+  console.log(chalk.cyanBright(`║ Wallet: ${chalk.yellowBright(walletAddress)} ${' '.repeat(42 - walletAddress.length)}║`));
+  console.log(chalk.cyanBright('╚' + '═'.repeat(78) + '╝'));
+
+  let wallet;
+  try {
+    wallet = new Wallet(privateKey);
+  } catch (error) {
+    console.error(chalk.red(`❌ Error creating wallet: ${error.message}`));
+    return;
+  }
+
+  const tasks = ['task003', 'task002', 'task001'];
+  for (let i = 0; i < tasks.length; i++) {
+    const spinnerTask = ora({ text: `⏳ Claiming Task ${i + 1}/3 ...`, spinner: 'dots2', color: 'cyan' }).start();
+    const msg = await claimTask(walletAddress, tasks[i], proxy);
+    if (msg.toLowerCase().includes('successfully') || msg.toLowerCase().includes('berhasil')) {
+      spinnerTask.succeed(chalk.greenBright(` ✅ Task ${i + 1}/3 claimed: ${msg}`));
     } else {
-        console.log(chalk.yellow('⚠️  proxies.txt not found - proceeding without proxies'));
+      spinnerTask.fail(chalk.red(` ❌ Task ${i + 1}/3 failed: ${msg}`));
     }
+  }
 }
 
-// ======================
-// Proxy Management
-// ======================
-function getRandomProxy() {
-    if (proxies.length === 0) return null;
-    return proxies[Math.floor(Math.random() * proxies.length)];
-}
+async function run() {
+  print_banner();
+  console.log(centerText("=== 🔥 Follow Me on GitHub: @Kazuha787 🔥 ===\n", 'cyanBright'));
 
-async function testProxy(proxyUrl) {
+  const accounts = await readAccounts();
+  if (accounts.length === 0) {
+    console.log(chalk.red('⚠️ No accounts found in accounts.json.'));
+    return;
+  }
+
+  for (let i = 0; i < accounts.length; i++) {
     try {
-        const agent = proxyUrl.startsWith('http') 
-            ? new HttpProxyAgent(proxyUrl)
-            : new SocksProxyAgent(proxyUrl);
-
-        await axios.get('https://api.ipify.org', {
-            httpAgent: agent,
-            httpsAgent: agent,
-            timeout: 5000
-        });
-        return true;
-    } catch (e) {
-        return false;
-    }
-}
-
-// ======================
-// Core Functionality
-// ======================
-function generateWallet() {
-    return ethers.Wallet.createRandom();
-}
-
-async function makeRequest(method, endpoint, data) {
-    let retries = 0;
-    let usedProxies = new Set();
-
-    while (retries <= MAX_RETRIES) {
-        const proxyUrl = getRandomProxy();
-        let agent = null;
-
-        if (proxyUrl) {
-            if (usedProxies.has(proxyUrl)) continue;
-            usedProxies.add(proxyUrl);
-
-            try {
-                if (!await testProxy(proxyUrl)) {
-                    console.log(chalk.red(`❌ Proxy ${proxyUrl} failed test - skipping`));
-                    continue;
-                }
-
-                agent = proxyUrl.startsWith('http') 
-                    ? new HttpProxyAgent(proxyUrl)
-                    : new SocksProxyAgent(proxyUrl);
-            } catch (e) {
-                console.log(chalk.red(`❌ Proxy error: ${e.message}`));
-                continue;
-            }
-        }
-
-        try {
-            const response = await axios({
-                method,
-                url: `${BASE_URL}${endpoint}`,
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
-                    'Accept': 'application/json, text/plain, */*',
-                    'Content-Type': 'application/json',
-                    'origin': 'https://monadscore.xyz',
-                    'referer': 'https://monadscore.xyz/'
-                },
-                data,
-                httpAgent: agent,
-                httpsAgent: agent,
-                timeout: 15000
-            });
-
-            return response.data;
-        } catch (error) {
-            if (retries === MAX_RETRIES) {
-                throw new Error(`❌ Request failed after ${MAX_RETRIES} retries: ${error.message}`);
-            }
-            retries++;
-        }
-    }
-}
-
-async function registerWallet(walletAddress) {
-    if (!REFERRAL_CODE) {
-        throw new Error('⚠️  No referral code available');
-    }
-
-    return makeRequest('POST', '/user', {
-        wallet: walletAddress,
-        invite: REFERRAL_CODE
-    });
-}
-
-async function startNode(walletAddress) {
-    return makeRequest('PUT', '/user/update-start-time', {
-        wallet: walletAddress,
-        startTime: Date.now()
-    });
-}
-
-// ======================
-// Main Process (Fixed)
-// ======================
-async function main() {
-    try {
-        await printBanner();
-        
-        startSpinner('Initializing system');
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        stopSpinner();
-        initialize();
-
-        // Fixed input handling
-        const count = parseInt(readline.question('🌟 ' + chalk.yellow('Enter number of wallets to create: ')));
-
-        if (isNaN(count) || count <= 0) {
-            console.log(chalk.red('❌ Invalid input - please enter a positive number'));
-            return;
-        }
-
-        let wallets = [];
-        if (fs.existsSync('wallets.json')) {
-            startSpinner('Loading existing wallets');
-            wallets = JSON.parse(fs.readFileSync('wallets.json', 'utf-8'));
-            stopSpinner();
-            console.log(chalk.green(`✅ Loaded ${chalk.yellow(wallets.length)} existing wallets`));
-        }
-
-        for (let i = 0; i < count; i++) {
-            startSpinner(`Creating wallet ${i + 1}/${count}`);
-            const wallet = generateWallet();
-            stopSpinner();
-            
-            const shortAddress = `${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)}`;
-            console.log(chalk.blue(`\n🔄 Processing wallet ${i + 1}/${count} (${shortAddress})`));
-
-            try {
-                startSpinner('Registering wallet');
-                const regResult = await registerWallet(wallet.address);
-                stopSpinner();
-                console.log(chalk.green('✅ Registration successful ') + chalk.greenBright('✓'));
-
-                startSpinner('Activating node');
-                const nodeResult = await startNode(wallet.address);
-                stopSpinner();
-                console.log(chalk.green('✅ Node activated ') + chalk.greenBright('✓'));
-
-                wallets.push({
-                    address: wallet.address,
-                    privateKey: wallet.privateKey,
-                    createdAt: new Date().toISOString()
-                });
-                
-                startSpinner('Saving wallet');
-                fs.writeFileSync('wallets.json', JSON.stringify(wallets, null, 2));
-                stopSpinner();
-                console.log(chalk.green('✅ Wallet saved ') + chalk.greenBright('✓'));
-
-                stats.success++;
-            } catch (error) {
-                stopSpinner();
-                console.log(chalk.red(`❌ ${error.message} `) + chalk.redBright('✗'));
-                stats.failed++;
-            }
-
-            stats.total++;
-            console.log(chalk.yellow(`📊 Progress: ${stats.success} succeeded, ${stats.failed} failed\n`));
-        }
-
-        // Final animation
-        console.log(chalk.hex('#FF69B4')(`
-        🌟🎉🌟🎉🌟🎉🌟🎉🌟🎉🌟🎉🌟🎉🌟🎉🌟
-        🎉                                 🎉
-        🌟      Process Completed!         🌟
-        🎉                                 🎉
-        🌟🎉🌟🎉🌟🎉🌟🎉🌟🎉🌟🎉🌟🎉🌟🎉🌟
-        `));
-        
-        console.log(chalk.blue(`📊 Final results:
-        Total wallets: ${stats.total}
-        ✅ Successful: ${stats.success}
-        ❌ Failed: ${stats.failed}
-        📁 Saved wallets: ${wallets.length}`));
+      await processAccount(accounts[i], i, accounts.length, null);
     } catch (error) {
-        console.log(chalk.red(`❌ Critical error: ${error.message}`));
+      console.error(chalk.red(`⚠️ Error processing account ${i + 1}: ${error.message}`));
     }
+  }
+
+  console.log(chalk.magentaBright('\n🚀 All tasks completed! Waiting 24 hours before retrying... ⏳'));
+  await delay(86400);
+  run();
 }
 
-// ======================
-// Start Application
-// ======================
-main();
+run();
