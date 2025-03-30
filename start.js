@@ -127,7 +127,7 @@ async function processAccount(account, index, total, proxy) {
 
 async function run() {
   print_banner();
-  console.log(centerText("=== 🔥 Follow Me on GitHub: @Kazuha787 🔥 ===\n", 'cyanBright'));
+  console.log(centerText("=== 🔥 Follow My Channel: @airdropbombnode 🔥 ===\n", 'cyanBright'));
 
   const accounts = await readAccounts();
   if (accounts.length === 0) {
