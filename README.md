@@ -4,8 +4,7 @@ A fully automated bot designed to update Monadscorenode start times for multiple
 
 ## 📢 Join Our Community  
 
-- # Telegram Channel: .[Channel](https://t.me/Offical_Im_kazuha)
-# GitHub Repository: [Monadscrore](https://github.com/Kazuha787/Monardscore-Bot.git)
+- # Telegram Channel: .[Channel](https://t.me/airdropbombnode)
 ## **🔹 Overview**  
 
 MSCORE Auto Node Updater is a powerful tool for automating the process of updating wallet start times on the MSCORE network. By integrating proxy support, random delays, and logging mechanisms, it ensures efficient and secure operations without unnecessary duplicate updates.  
@@ -28,7 +27,7 @@ The bot reads wallet addresses from `wallets.json`, picks a random proxy (if ava
 ### **Step 1: Clone the Repository**  
 
 ```bash
-git clone https://github.com/Kazuha787/Monadscore-Bot.git
+git clone https://github.com/airdropbomb/Monadscore-Bot.git
 cd Monadscore-Bot
 ```
 ## Step 2: Install Dependencies
